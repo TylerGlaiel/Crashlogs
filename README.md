@@ -2,11 +2,11 @@
 A simple way to output stack traces when a program crashes in C++, using the new C++23 &lt;stacktrace> header
 currently windows-only, but if anyone wants to add mac or linux support I'll merge it in
 
-usage: include the files in your project, then call
-glaiel::crashlogs::begin_monitoring();
+usage: include the files in your project, then call  
+glaiel::crashlogs::begin_monitoring();  
 to enable crash handling (probably do this at the start of your program)
 
-when the program crashes, it will save a timestamped stack trace to the folder specified with
+when the program crashes, it will save a timestamped stack trace to the folder specified with  
 glaiel::crashlogs::set_crashlog_folder(folder_path);
 
 some additional customizability and callbacks are documented in the header file
