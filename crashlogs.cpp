@@ -138,7 +138,6 @@ namespace glaiel::crashlogs {
     }
 
     static inline void crash_handler() {
-        std::cout << "crash handler" << std::endl;
         //if we crashed during a crash... ignore lol
         if(status != program_status::running) return;
 
@@ -174,7 +173,6 @@ namespace glaiel::crashlogs {
 
     //callback needed during a normal exit to shut down the thread
     static inline void normal_exit() {
-        std::cout << "normal exit" << std::endl;
         status = program_status::normal_exit;
         cv.notify_one();
         output_thread.join();
