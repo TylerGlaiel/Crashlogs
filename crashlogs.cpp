@@ -18,6 +18,7 @@
 #include <csignal>
 #include <exception>
 #include <cstdlib>
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 //a decent amount of this was copied/modified from backward.cpp (https://github.com/bombela/backward-cpp)
