@@ -31,10 +31,6 @@
     #include <windows.h>
 #endif
 
-//misc std lib stuff
-#include <string_view>
-#include <iostream>
-
 //a decent amount of this was copied/modified from backward.cpp (https://github.com/bombela/backward-cpp)
 //mostly the stuff related to actually getting crash handlers on crashes
 //and the thread which is SOLELY there to be able to write a log on a stack overflow,
@@ -46,7 +42,7 @@ namespace glaiel::crashlogs {
     //information for where to save stack traces
     static std::stacktrace trace;
     static std::string header_message;
-    static std::string header_reason;
+    static int crash_signal = 0; // 0 is not a valid signal id
     static std::filesystem::path output_folder;
     static std::string filename = "crash_{timestamp}.txt";
     static void (*on_output_crashlog)(std::string crashlog_filename) = NULL;
@@ -84,15 +80,16 @@ namespace glaiel::crashlogs {
     }
 
     static std::filesystem::path get_log_filepath();
+    static const char* try_get_signal_name(int signal);
 
     //output the crashlog file after a crash has occured
     static void output_crash_log() {
         std::filesystem::path path = get_log_filepath();
-        const auto output_file = get_log_filepath();
-        std::cout << "Writing crashlog to " << output_file << std::endl;
-        std::ofstream log(output_file);
+        std::ofstream log(path);
         if(!header_message.empty()) log << header_message << std::endl;
-        if(!header_reason.empty()) log << header_reason << std::endl;
+        if(crash_signal != 0) {
+            log << "Received signal " << crash_signal << " " << try_get_signal_name(crash_signal) << std::endl;
+        }
         log << trace;
         log.close();
 
@@ -174,9 +171,8 @@ namespace glaiel::crashlogs {
 
     //Try to get the string representation of a signal identifier, return an empty string if none is found.
     //This only covers the signals from the C++ std lib and none of the POSIX or OS specific signal names!
-    static std::string_view try_get_signal_name(int signal) {
-        switch (signal)
-        {
+    static const char* try_get_signal_name(int signal) {
+        switch (signal) {
             case SIGTERM:
                 return "SIGTERM";
             case SIGSEGV:
@@ -195,20 +191,12 @@ namespace glaiel::crashlogs {
 
     //various callbacks needed to get into the crash handler during a crash (borrowed from backward.cpp)
     static inline void signal_handler(int signal) {
-        std::stringstream text;
-        text << "Received signal " << signal << " " << try_get_signal_name(signal);
-
-        std::cout << text.rdbuf() << std::endl;
-        header_reason = text.str();
-
+        crash_signal = signal;
         crash_handler();
         std::quick_exit(1);
     }
 
     static inline void terminator() {
-        std::cout << "Application terminated" << std::endl;
-        header_reason = "Application terminated";
-
         crash_handler();
         std::quick_exit(1);
     }
@@ -233,18 +221,27 @@ namespace glaiel::crashlogs {
         output_thread.join();
     }
 
+#ifdef OS_WINDOWS
     //set up all the callbacks needed to get into the crash handler during a crash (borrowed from backward.cpp)
     void begin_monitoring() {
         output_thread = std::thread(crash_handler_thread);
 
-#ifdef OS_WINDOWS
         SetUnhandledExceptionFilter(exception_handler);
+        std::signal(SIGABRT, signal_handler);
+        std::set_terminate(terminator);
         _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
         _set_purecall_handler(terminator);
         _set_invalid_parameter_handler(&invalid_parameter_handler);
-#endif
-        std::signal(SIGABRT, signal_handler);
 
+        std::atexit(normal_exit);
+    }
+#endif
+
+#ifdef OS_UNIX
+    void begin_monitoring() {
+        output_thread = std::thread(crash_handler_thread);
+
+        std::signal(SIGABRT, signal_handler);
         std::signal(SIGSEGV, signal_handler);
         std::signal(SIGILL, signal_handler);
 
@@ -252,4 +249,5 @@ namespace glaiel::crashlogs {
 
         std::atexit(normal_exit);
     }
+#endif
 }

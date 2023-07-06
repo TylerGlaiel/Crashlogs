@@ -8,7 +8,7 @@
 
 #include <csignal>
 
-#include "crashlogs.h"
+#include "../crashlogs.h"
 
 enum class TestType
 {
@@ -112,7 +112,8 @@ void usage(const char *arg0)
                  "\t - 'Abort'\n"
                  "\t - 'Terminate'\n"
                  "\t - 'IllegalInstruction'\n"
-                 "\t - 'UnhandledException'"
+                 "\t - 'UnhandledException'\n"
+                 "\t - 'StackOverflow'"
               << std::endl;
 }
 
