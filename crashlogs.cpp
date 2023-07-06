@@ -18,7 +18,6 @@
 #include <csignal>
 #include <exception>
 #include <cstdlib>
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 //a decent amount of this was copied/modified from backward.cpp (https://github.com/bombela/backward-cpp)
@@ -154,7 +153,7 @@ namespace glaiel::crashlogs {
     }
 
     //various callbacks needed to get into the crash handler during a crash (borrowed from backward.cpp)
-    static inline void signal_handler(int signal) {
+    static inline void signal_handler(int) {
         crash_handler();
         abort();
     }
@@ -162,7 +161,7 @@ namespace glaiel::crashlogs {
         crash_handler();
         abort();
     }
-    __declspec(noinline) static LONG WINAPI exception_handler(EXCEPTION_POINTERS* info) {
+    __declspec(noinline) static LONG WINAPI exception_handler(EXCEPTION_POINTERS*) {
         crash_handler();
         return EXCEPTION_CONTINUE_SEARCH;
     }
