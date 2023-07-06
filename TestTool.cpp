@@ -17,11 +17,13 @@ enum class TestType
     Terminate,
     IllegalInstruction,
     UnhandledException,
+    StackOverflow,
 };
 
 // forward declarations so we can use these in main
-[[nodiscard]] std::optional<TestType> testTypeFromString(std::string_view str);
 void usage(const char *arg0);
+[[nodiscard]] std::optional<TestType> testTypeFromString(std::string_view str);
+void causeStackOverflow(int val);
 
 int main(int argc, char **argv)
 {
@@ -89,6 +91,12 @@ int main(int argc, char **argv)
         throw std::logic_error("Whoops");
     }
     break;
+    case TestType::StackOverflow:
+    {
+        std::cout << "Causing StackOverflow" << std::endl;
+        causeStackOverflow(0);
+    }
+    break;
     }
 
     return 0;
@@ -120,5 +128,13 @@ std::optional<TestType> testTypeFromString(std::string_view str)
         return TestType::IllegalInstruction;
     if (str == "UnhandledException" || str == "unhandledexception")
         return TestType::UnhandledException;
+    if (str == "StackOverflow" || str == "stackoverflow")
+        return TestType::StackOverflow;
     return std::nullopt;
+}
+
+void causeStackOverflow(int val)
+{
+    causeStackOverflow(val + 1);
+    std::cout << " " << val;
 }
