@@ -23,15 +23,16 @@
 
 //a decent amount of this was copied/modified from backward.cpp (https://github.com/bombela/backward-cpp)
 //mostly the stuff related to actually getting crash handlers on crashes
-//and the thread which is SOLELY there to be able to write a log on a stack overflow, 
+//and the thread which is SOLELY there to be able to write a log on a stack overflow,
 //since otherwise there is not enough stack space to output the stack trace
 //main difference here is utilizing C++23 <stacktrace> header for generating stack traces
-//and using <atmoic> and a few other more recent C++ features if we're gonna be using C++23 anyway
+//and using <atomic> and a few other more recent C++ features if we're gonna be using C++23 anyway
 
 namespace glaiel::crashlogs {
     //information for where to save stack traces
     static std::stacktrace trace;
     static std::string header_message;
+    static int crash_signal = 0; // 0 is not a valid signal id
     static std::filesystem::path output_folder;
     static std::string filename = "crash_{timestamp}.txt";
     static void (*on_output_crashlog)(std::string crashlog_filename) = NULL;
@@ -64,16 +65,21 @@ namespace glaiel::crashlogs {
         header_message = message;
     }
     std::string get_crashlog_header_message() {
+        std::unique_lock<std::mutex> lk(mut);
         return header_message;
     }
 
     static std::filesystem::path get_log_filepath();
+    static const char* try_get_signal_name(int signal);
 
     //output the crashlog file after a crash has occured
     static void output_crash_log() {
         std::filesystem::path path = get_log_filepath();
-        std::ofstream log(get_log_filepath());
+        std::ofstream log(path);
         if(!header_message.empty()) log << header_message << std::endl;
+        if(crash_signal != 0) {
+            log << "Received signal " << crash_signal << " " << try_get_signal_name(crash_signal) << std::endl;
+        }
         log << trace;
         log.close();
 
@@ -153,14 +159,35 @@ namespace glaiel::crashlogs {
         cv.wait(lk, [] { return status != program_status::crashed; });
     }
 
+    //Try to get the string representation of a signal identifier, return an empty string if none is found.
+    //This only covers the signals from the C++ std lib and none of the POSIX or OS specific signal names!
+    static const char* try_get_signal_name(int signal) {
+        switch (signal) {
+            case SIGTERM:
+                return "SIGTERM";
+            case SIGSEGV:
+                return "SIGSEGV";
+            case SIGINT:
+                return "SIGINT";
+            case SIGILL:
+                return "SIGILL";
+            case SIGABRT:
+                return "SIGABRT";
+            case SIGFPE:
+                return "SIGFPE";
+        }
+        return "";
+    }
+
     //various callbacks needed to get into the crash handler during a crash (borrowed from backward.cpp)
-    static inline void signal_handler(int) {
+    static inline void signal_handler(int signal) {
+        crash_signal = signal;
         crash_handler();
-        abort();
+        std::quick_exit(1);
     }
     static inline void terminator() {
         crash_handler();
-        abort();
+        std::quick_exit(1);
     }
     __declspec(noinline) static LONG WINAPI exception_handler(EXCEPTION_POINTERS*) {
         crash_handler();
@@ -184,6 +211,8 @@ namespace glaiel::crashlogs {
 
         SetUnhandledExceptionFilter(exception_handler);
         std::signal(SIGABRT, signal_handler);
+        std::signal(SIGSEGV, signal_handler);
+        std::signal(SIGILL, signal_handler);
         std::set_terminate(terminator);
         _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
         _set_purecall_handler(terminator);
