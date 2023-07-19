@@ -13,3 +13,8 @@ some additional customizability and callbacks are documented in the header file
 
 
 note: the stack trace outputted will include a bunch of error handling stuff at the top. It would be nice to skip printing the first X stack trace entries, but how many to skip seems kinda dependent on optimization settings and which condition triggered the error handler, so I did not bother with that yet.
+
+### Testing
+
+`TestTool.cpp` is a very simple command line tool to test a few different cases.  
+It will enable the monitoring and delibrately crash so you can manually verify the handler works.
